@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Agentic Payments{% endblock %}</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #2a2e38;
+      --text: #e6e8eb;
+      --muted: #9aa1ac;
+      --accent: #5aa9ff;
+      --danger: #ff6b6b;
+      --ok: #52c98f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header a { color: var(--text); text-decoration: none; font-weight: 600; }
+    main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+    .stats { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      min-width: 150px;
+    }
+    .stat .label { color: var(--muted); font-size: 0.8rem; }
+    .stat .value { font-size: 1.3rem; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+    tr:hover td { background: var(--panel); }
+    a.row-link { color: var(--text); text-decoration: none; display: block; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.completed { background: rgba(82,201,143,0.15); color: var(--ok); }
+    .badge.running { background: rgba(90,169,255,0.15); color: var(--accent); }
+    .badge.failed { background: rgba(255,107,107,0.15); color: var(--danger); }
+    .event {
+      border-left: 3px solid var(--border);
+      padding: 0.6rem 1rem;
+      margin-bottom: 0.5rem;
+      background: var(--panel);
+      border-radius: 0 6px 6px 0;
+    }
+    .event.reasoning { border-left-color: var(--muted); }
+    .event.tool_call { border-left-color: var(--accent); }
+    .event.payment_executed { border-left-color: var(--ok); }
+    .event.payment_blocked, .event.payment_failed { border-left-color: var(--danger); }
+    .event.final_answer { border-left-color: #c99cff; }
+    .event .kind {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .event .summary { margin-top: 0.2rem; white-space: pre-wrap; }
+    .event .meta { margin-top: 0.3rem; font-size: 0.8rem; color: var(--muted); }
+    .mono { font-family: ui-monospace, Consolas, monospace; }
+    .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">Agentic Payments — Decision Log</a>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

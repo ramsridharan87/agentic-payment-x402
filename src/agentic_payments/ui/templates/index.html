@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Runs — Agentic Payments{% endblock %}
+{% block content %}
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Spent today</div>
+      <div class="value">${{ "%.4f"|format(spent_today) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Daily cap</div>
+      <div class="value">${{ "%.2f"|format(policy.daily_cap_usd) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Per-transaction cap</div>
+      <div class="value">${{ "%.2f"|format(policy.per_tx_cap_usd) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Wallet</div>
+      <div class="value mono" style="font-size:0.85rem">{{ wallet_address }}</div>
+    </div>
+  </div>
+
+  <h2>Runs</h2>
+  {% if runs %}
+  <table>
+    <tr>
+      <th>Started</th>
+      <th>Goal</th>
+      <th>Status</th>
+      <th>Payments</th>
+      <th>Spent</th>
+    </tr>
+    {% for run in runs %}
+    <tr>
+      <td colspan="5" style="padding:0">
+        <a class="row-link" href="/runs/{{ run.id }}" style="display:grid; grid-template-columns: 180px 1fr 100px 100px 100px; padding:0.6rem 0.5rem;">
+          <span>{{ run.started_at[:19] }}</span>
+          <span>{{ run.goal }}</span>
+          <span><span class="badge {{ run.status }}">{{ run.status }}</span></span>
+          <span>{{ run.payment_count }}</span>
+          <span>${{ "%.4f"|format(run.total_spent_usd) }}</span>
+        </a>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No agent runs yet. Run <code>python scripts/run_agent.py "&lt;goal&gt;"</code> to start one.</div>
+  {% endif %}
+{% endblock %}

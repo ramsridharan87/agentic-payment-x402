@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Run — Agentic Payments{% endblock %}
+{% block content %}
+  <p><a href="/" style="color:var(--accent)">&larr; All runs</a></p>
+  <h2>{{ run.goal }}</h2>
+  <p class="event">
+    <span class="badge {{ run.status }}">{{ run.status }}</span>
+    started {{ run.started_at[:19] }}{% if run.ended_at %} &middot; ended {{ run.ended_at[:19] }}{% endif %}
+  </p>
+
+  {% for event in events %}
+  <div class="event {{ event.kind }}">
+    <div class="kind">{{ event.kind.replace('_', ' ') }}{% if event.tool_name %} &middot; {{ event.tool_name }}{% endif %}</div>
+    <div class="summary">{{ event.summary }}</div>
+    {% if event.amount_usd is not none or event.destination or event.tx_hash %}
+    <div class="meta mono">
+      {% if event.amount_usd is not none %}${{ "%.4f"|format(event.amount_usd) }}{% endif %}
+      {% if event.destination %} &rarr; {{ event.destination }}{% endif %}
+      {% if event.network %} on {{ event.network }}{% endif %}
+      {% if event.tx_hash %} &middot; tx {{ event.tx_hash }}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% endblock %}

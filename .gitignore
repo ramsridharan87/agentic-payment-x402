@@ -10,3 +10,5 @@ build/
 .ipynb_checkpoints/
 logs/
 *.log
+data/
+*.db
