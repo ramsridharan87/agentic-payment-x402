@@ -6,6 +6,23 @@ from cdp import CdpClient
 from ..wallet.cdp_wallet import DEFAULT_ACCOUNT_NAME
 
 
+def _jsonable(value: Any) -> Any:
+    """Recursively convert raw bytes to 0x-hex strings.
+
+    x402 builds EIP-712 messages with real `bytes` values for bytes32 fields
+    (e.g. the nonce) because eth_account's local signer wants that. CDP's
+    sign_typed_data is a remote API call, though - the message has to survive
+    a JSON request body, and plain bytes isn't JSON-serializable.
+    """
+    if isinstance(value, (bytes, bytearray)):
+        return "0x" + bytes(value).hex()
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_jsonable(v) for v in value]
+    return value
+
+
 class CdpEvmSigner:
     """Bridges x402's ClientEvmSigner protocol to a CDP-managed account.
 
@@ -53,6 +70,23 @@ class CdpEvmSigner:
             type_name: [{"name": f.name, "type": f.type} for f in fields]
             for type_name, fields in types.items()
         }
+        message_dict = _jsonable(message)
+
+        # CDP's sign_typed_data API is standard eth_signTypedData_v4 JSON-RPC
+        # shape, which requires an explicit EIP712Domain type entry - unlike
+        # local eth_account signing, which derives it from the domain object.
+        if "EIP712Domain" not in types_dict:
+            domain_field_types = {
+                "name": "string",
+                "version": "string",
+                "chainId": "uint256",
+                "verifyingContract": "address",
+            }
+            types_dict["EIP712Domain"] = [
+                {"name": key, "type": domain_field_types[key]}
+                for key in domain_field_types
+                if key in domain_dict
+            ]
 
         async with CdpClient() as cdp:
             account = await cdp.evm.get_or_create_account(name=self._account_name)
@@ -60,7 +94,7 @@ class CdpEvmSigner:
                 domain=domain_dict,
                 types=types_dict,
                 primary_type=primary_type,
-                message=message,
+                message=message_dict,
             )
 
         if isinstance(signature, (bytes, bytearray)):
