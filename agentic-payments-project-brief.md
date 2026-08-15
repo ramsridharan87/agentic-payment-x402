@@ -1,27 +1,43 @@
 # Agentic Payments Project — Build Brief
 
 ## The Idea
-Build an AI agent that can autonomously pay for small, paywalled content (e.g. a $0.50 New Yorker article) on my behalf — read the request, fund the payment from a crypto wallet it controls, execute the payment through whatever rail the merchant actually accepts, and complete the task (e.g. summarize the article).
+Build an AI agent that can autonomously decide when a task requires paying for a resource, and pay for it on my behalf — reasoning about the decision itself, not just executing a payment I've already told it to make.
 
-**Key reframe from initial idea:** x402 (Coinbase's HTTP 402-based payment protocol) is NOT assumed to be the only rail. Most legacy paywalls (New Yorker, Conde Nast, etc.) do not speak x402 — it's mainly used by crypto-native APIs/platforms today. So the architecture should support **two payment paths**:
-1. **x402 direct path** — for the (currently small) set of merchants/APIs that support it natively. Fast, no card needed.
-2. **Fiat bridge path** — for everything else. Convert USDC → a spendable virtual card in real time (via Lithic or similar), then complete a normal card checkout via browser automation.
+This project serves two learning goals, pursued as two separate, sequential experiments:
+
+1. **Learn to build an agentic payments tool end-to-end that reasons about whether to make a payment** — Experiment 1, active now.
+2. **Learn to use fiat to make payments** — Experiment 2, deferred until Experiment 1 is done.
 
 ---
 
-## Core Components
+## Experiment 1: x402 Agentic Payments (Active — Build This Weekend)
 
-| Component | Role | Candidate Tool |
-|---|---|---|
-| Wallet & funding | Holds USDC, agent-controlled | Coinbase Developer Platform (CDP) wallet, on Base chain |
-| Stablecoin→fiat off-ramp | Converts USDC to a spendable card for fiat-only merchants | Lithic (virtual card issuing API) |
-| Agent reasoning | Decides what/when/how much to pay, orchestrates tool calls | Claude API with tool use, built in Python (not a no-code tool like n8n — need tight control over money-triggering logic) |
-| Browser automation | Actually navigates paywall pages, submits card, reads article | Playwright |
-| x402 path | Skips the card step for protocol-native merchants | x402 SDK/middleware |
-| Guardrails | Hard limits independent of agent's own reasoning | Custom code layer — per-transaction cap, daily/session cap |
-| Secrets management | Protects API keys/credentials | Env vars locally → proper secrets manager (AWS Secrets Manager, Render env vars) once deployed |
-| Endpoint auth | Prevents randoms from triggering the agent and burning credits/funds | Private API key gating my own trigger endpoint |
-| Deployment | Makes this usable from anywhere, not just my laptop | Local Playwright/Python first → deploy to Render/Railway/Browserbase-style host for 24/7 headless operation |
+**Goal:** build a goal-driven agent that autonomously decides whether a task requires a paid resource, and if so, pays for it via x402 in real USDC on Base — no fiat, no card issuance, no browser automation involved at all.
+
+**Wallet:** reuse the existing CDP wallet, already funded with real USDC on Base mainnet. The existing $2-per-transaction Wallet Policy (`netUSDChange <= 200 cents`) stays enforced as a guardrail independent of the agent's own reasoning.
+
+**Critical requirement:** the agent must do its own reasoning about whether to pay — it is not directly orchestrated by me calling a specific paid endpoint. It needs both free tools (e.g. web search) and paid x402 tools/endpoints available to it, must discover through the task itself when it's hit a 402 response, and must then decide autonomously whether the task justifies paying.
+
+**Source of paid resources:** Coinbase's **x402 Bazaar** — a live, searchable directory of real pay-per-call endpoints (financial data, AI inference, scraping, etc.).
+
+**Candidate goals** (build incrementally, not all at once):
+1. Determine current Bitcoin market sentiment and summarize in one paragraph — free search may suffice, or the agent may reach for a paid data/sentiment API.
+2. Get the latest price of a specified stock and flag anything unusual — maps to Bazaar financial data endpoints.
+3. General research task where Parcl Labs' real estate API may surface as a free/subscription comparison point, but any paid step taken should come from x402 Bazaar-listed alternatives.
+
+**Build phases:**
+- **Phase 1 (this weekend):** single goal, agent has both free and paid tools available, must reason and decide independently whether to pay.
+- **Later phases (not this weekend):** explicit spending-policy language given to the agent, and multi-option price/quality comparison across paid alternatives before choosing one.
+
+---
+
+## Experiment 2: Fiat Card Issuance (Deferred — Sandbox Only)
+
+**Goal:** prove the full fiat-card architecture and agent decision logic end-to-end, in **sandbox only** — Lithic or Rain sandbox, whichever has the cleaner dev experience.
+
+**Retired for this experiment:** unlocking a real, live New Yorker article, in its current form. Lithic requires a funding account (e.g. a linked bank account) and cannot pull funds directly from a crypto wallet — bridging USDC into a Lithic-funded card requires a human-mediated bank-linking step. That breaks the fully agentic nature of the flow: the funding source can't be created or linked by the agent itself, no matter how the reasoning layer is built. This is a structural limitation of the funding model, not just a KYB/business-approval hurdle (though that applies too, for production access). This experiment validates the mechanics and architecture in sandbox, not a live real-money outcome.
+
+**Guardrails carry over unchanged:** separation of agent reasoning from wallet custody, hard spending caps, audit logging — all still apply, just validated against simulated/sandbox transactions instead of real ones.
 
 ---
 
@@ -35,55 +51,12 @@ Mental model: the agent is a decision-maker behind a locked door; it can only as
 
 ---
 
-## Suggested Build Order (with rationale)
-
-**1. CDP wallet creation & funding (start here)**
-- New to me: first wallet not held in my own name/custody — fully assigned to agent control. Worth doing deliberately, slowly.
-- Fund with a small trivial amount first: **$10 USDC**, not $50. Small enough to treat as a real experiment without real risk.
-- Goal: understand wallet creation, funding, and what "agent-controlled" actually means before any agent logic exists.
-
-**2. Lithic off-ramp, in isolation**
-- Build a standalone script: take a dollar amount → pull USDC from CDP wallet → produce a working one-time virtual card number.
-- Rationale for testing this early and in isolation:
-  - Highest external/compliance uncertainty (Lithic onboarding, KYB, whether crypto-funded card issuing is smooth) — surface this risk early.
-  - Binary, unambiguous success/failure (you either get a working card or you don't).
-  - Everything else in this project (API orchestration, decision logic) is closer to my existing day-job skill set — this is the genuinely novel part.
-
-**3. Agent reasoning loop**
-- Python + Claude API with tool/function calling.
-- Define a small set of tools: e.g. `check_price`, `request_payment`, `fetch_page_content`.
-- Model reasons in natural language ("price is $0.50, I should pay"), outputs a structured tool call, code executes it.
-
-**4. Browser automation (Playwright)**
-- Playwright drives a real (or headless) browser: navigate to URL, read page content, click, type, submit card details.
-- Agent decides *what* should happen at a high level; code translates that into actual Playwright actions.
-- Local Chrome window for dev/debugging → headless Chromium once deployed.
-
-**5. Security & guardrails layer**
-- Secrets: env vars → real secrets manager once hosted.
-- Endpoint auth: private key required to trigger the agent at all.
-- Spending caps: hard-coded, enforced in code (not just prompted) —
-  - Per-transaction cap (e.g. never >$2 without explicit confirmation)
+## Security & Guardrails
+- **Secrets:** env vars locally → proper secrets manager once hosted.
+- **Endpoint auth:** private key required to trigger the agent at all.
+- **Spending caps:** hard-coded, enforced in code (not just prompted) —
+  - Per-transaction cap (e.g. never >$2 without explicit confirmation) — currently enforced for Experiment 1 via the CDP Wallet Policy (`netUSDChange <= 200 cents`).
   - Daily/session cap (e.g. never >$X or >N transactions per day) — protects against a buggy loop firing repeated payments.
-- Logging/audit trail: record every decision + transaction outside of just the model's own narration.
+- **Logging/audit trail:** record every decision + transaction outside of just the model's own narration.
 
-**6. x402 path (bonus, not blocking)**
-- Add support for merchants/APIs that natively speak x402 — skips the Lithic/card step entirely for those.
-- Nice-to-have optimization layered on top of the fiat-bridge path, not a dependency for launch.
-
-**7. Deployment**
-- Prototype and validate fully locally first.
-- Once working, deploy to a small always-on host (Render, Railway, or similar) so the agent is internet-usable and triggerable from anywhere (e.g. phone).
-
----
-
-## Open Questions to Resolve During Build
-- Lithic's onboarding/KYB requirements for an individual builder vs. a registered business.
-- Exact CDP wallet funding flow (on-ramp from exchange → Base chain USDC).
-- What specific spending cap numbers make sense for real testing (e.g. $2 per-tx / $10 per day to start).
-- Whether to browser-automate against a specific first test target, or start with a merchant/API known to support card payments cleanly for the first end-to-end test.
-
----
-
-## First Milestone
-Get a working script that: creates/confirms a CDP wallet funded with $10 USDC → calls Lithic to mint a one-time virtual card for a specified small amount → prints back a usable card number. No agent reasoning, no browser automation yet — just prove the money-movement mechanics work.
+These guardrails apply to both experiments, whether the transaction is real (Experiment 1) or simulated (Experiment 2).
