@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}New run — Agentic Payments{% endblock %}
+{% block content %}
+  <h2>New goal</h2>
+  <p style="color:var(--muted)">
+    Give the agent an open-ended goal. It reasons about whether it needs a paid
+    resource to accomplish it, and only spends money within the configured caps.
+  </p>
+  <form method="post" action="/runs">
+    <textarea name="goal" rows="4" placeholder="e.g. Determine current Bitcoin market sentiment and summarize it in one paragraph." required></textarea>
+    <div style="margin-top:0.75rem">
+      <button type="submit">Run agent</button>
+    </div>
+  </form>
+{% endblock %}

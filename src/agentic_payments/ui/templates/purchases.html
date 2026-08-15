@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Purchases — Agentic Payments{% endblock %}
+{% block content %}
+  <div class="stats">
+    <div class="stat">
+      <div class="label">Spent today</div>
+      <div class="value">${{ "%.4f"|format(spent_today) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Spent all time</div>
+      <div class="value">${{ "%.4f"|format(spent_all_time) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Daily cap</div>
+      <div class="value">${{ "%.2f"|format(policy.daily_cap_usd) }}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Per-transaction cap</div>
+      <div class="value">${{ "%.2f"|format(policy.per_tx_cap_usd) }}</div>
+    </div>
+  </div>
+
+  <h2>Payment events</h2>
+  {% if events %}
+  <table>
+    <tr>
+      <th>When</th>
+      <th>Run</th>
+      <th>Outcome</th>
+      <th>Amount</th>
+      <th>Destination</th>
+      <th>Resource</th>
+    </tr>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.ts[:19] }}</td>
+      <td><a href="/runs/{{ e.run_id }}" style="color:var(--accent)">{{ e.run_goal[:40] }}{% if e.run_goal|length > 40 %}&hellip;{% endif %}</a></td>
+      <td>
+        {% if e.kind == "payment_executed" %}<span class="badge completed">paid</span>
+        {% elif e.kind == "payment_blocked" %}<span class="badge failed">blocked</span>
+        {% else %}<span class="badge failed">failed</span>{% endif %}
+      </td>
+      <td class="mono">{% if e.amount_usd is not none %}${{ "%.4f"|format(e.amount_usd) }}{% endif %}</td>
+      <td class="mono" style="font-size:0.8rem">{{ e.destination or "" }}</td>
+      <td style="font-size:0.85rem">{{ (e.resource_url or "")[:50] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <div class="empty">No payment activity yet.</div>
+  {% endif %}
+{% endblock %}

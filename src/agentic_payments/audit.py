@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -7,7 +8,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "audit.db"
+
+def data_dir() -> Path:
+    """Root for persisted state (SQLite db, generated documents).
+
+    AGENTIC_PAYMENTS_DATA_DIR points at a mounted persistent disk when
+    hosted (e.g. Render); falls back to a local data/ dir for dev.
+    """
+    override = os.environ.get("AGENTIC_PAYMENTS_DATA_DIR")
+    if override:
+        return Path(override)
+    return Path(__file__).resolve().parent.parent.parent / "data"
+
+
+DEFAULT_DB_PATH = data_dir() / "audit.db"
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -109,6 +123,14 @@ class AuditLog:
                     json.dumps(detail) if detail else None,
                 ),
             )
+
+    def spent_all_time_usd(self) -> float:
+        with _connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(amount_usd), 0) AS total FROM events "
+                "WHERE kind = 'payment_executed'"
+            ).fetchone()
+        return float(row["total"])
 
     def spent_today_usd(self) -> float:
         """Total USD spent on successful payments across all runs today (UTC)."""

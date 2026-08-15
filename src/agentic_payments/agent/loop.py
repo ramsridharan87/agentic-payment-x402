@@ -7,6 +7,7 @@ from anthropic import Anthropic
 from cdp import CdpClient
 
 from ..audit import AuditLog
+from ..documents import generate_pdf
 from ..guardrails import SpendingPolicy
 from ..net import force_ipv4
 from ..payments.signer import CdpEvmSigner
@@ -109,13 +110,14 @@ def _run_tool(
     return {"error": f"Unknown tool: {name}"}
 
 
-def run_agent(goal: str, max_turns: int = 12) -> str:
+def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
     """Run the agent on `goal` to completion, returning its final answer.
     Every reasoning step, tool call, and payment decision is written to the
-    audit log as it happens."""
+    audit log as it happens. Pass `run_id` when the caller (e.g. the UI)
+    needs to know the id before the run finishes."""
     force_ipv4()
 
-    audit = AuditLog()
+    audit = AuditLog(run_id=run_id) if run_id else AuditLog()
     audit.start_run(goal)
 
     policy = SpendingPolicy.from_env()
@@ -159,6 +161,8 @@ def run_agent(goal: str, max_turns: int = 12) -> str:
             messages.append({"role": "user", "content": tool_results})
 
         audit.log("final_answer", final_text)
+        if final_text:
+            generate_pdf(audit.run_id, goal, final_text)
         audit.end_run("completed")
     except Exception as exc:
         audit.log("error", str(exc))

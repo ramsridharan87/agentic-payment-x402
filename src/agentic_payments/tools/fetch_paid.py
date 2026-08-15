@@ -1,5 +1,6 @@
 from typing import Any
 
+import requests
 from x402 import NoMatchingRequirementsError, PaymentAbortedError, x402ClientSync
 from x402.http import x402HTTPClientSync
 from x402.http.clients import x402_requests
@@ -42,6 +43,23 @@ def fetch_paid_resource(
             return {"error": "This resource didn't offer a payment method this wallet supports."}
         audit.log("payment_failed", f"Payment failed for {url}: {e}", resource_url=url)
         return {"error": f"Payment failed: {e}"}
+    except requests.exceptions.RequestException as e:
+        # Network/SSL/timeout errors from either the initial GET or a paid
+        # retry. If a payment had already been authorized by the guardrail
+        # hook, we can't tell from here whether it actually landed - flag
+        # that explicitly rather than silently treating it as "no payment".
+        if last_payment.amount_usd is not None:
+            audit.log(
+                "payment_failed",
+                f"Network error after payment was authorized for {url} - "
+                f"outcome unknown, verify on-chain: {e}",
+                amount_usd=last_payment.amount_usd,
+                destination=last_payment.destination,
+                resource_url=url,
+                network=last_payment.network,
+            )
+            return {"error": f"Network error after payment was authorized - outcome unknown: {e}"}
+        return {"error": f"Could not reach {url}: {e}"}
 
     if response.status_code >= 400:
         return {

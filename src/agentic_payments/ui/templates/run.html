@@ -1,11 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Run — Agentic Payments{% endblock %}
+{% block head_extra %}{% if run.status == "running" %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
 {% block content %}
   <p><a href="/" style="color:var(--accent)">&larr; All runs</a></p>
   <h2>{{ run.goal }}</h2>
   <p class="event">
     <span class="badge {{ run.status }}">{{ run.status }}</span>
     started {{ run.started_at[:19] }}{% if run.ended_at %} &middot; ended {{ run.ended_at[:19] }}{% endif %}
+    {% if run.status == "running" %} &middot; refreshing every 3s&hellip;{% endif %}
+    {% if has_pdf %} &middot; <a class="button secondary" style="padding:0.2rem 0.7rem; font-size:0.8rem;" href="/runs/{{ run.id }}/download">Download PDF</a>{% endif %}
   </p>
 
   {% for event in events %}

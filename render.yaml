@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: agentic-payments-ui
+    runtime: python
+    plan: starter
+    region: oregon
+    buildCommand: pip install -e ".[wallet,payments,tools,ui,agent,documents]"
+    startCommand: uvicorn agentic_payments.ui.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.15
+      - key: AGENTIC_PAYMENTS_DATA_DIR
+        value: /var/data
+      - key: PAYMENT_PER_TX_CAP_USD
+        value: "2"
+      - key: PAYMENT_DAILY_CAP_USD
+        value: "10"
+      # Secrets - set these in the Render dashboard, never committed here.
+      - key: CDP_API_KEY_ID
+        sync: false
+      - key: CDP_API_KEY_SECRET
+        sync: false
+      - key: CDP_WALLET_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: TRIGGER_API_KEY
+        sync: false
+    disk:
+      name: agentic-payments-data
+      mountPath: /var/data
+      sizeGB: 1
