@@ -24,4 +24,4 @@ cp .env.example .env   # then fill in real keys
 6. x402 path (bonus)
 7. Deployment
 
-Currently at: **step 1**.
+Step 1 done: `scripts/wallet_status.py` creates/confirms the CDP wallet and reports its Base-mainnet USDC balance. Currently at: **step 2** (Lithic off-ramp).
