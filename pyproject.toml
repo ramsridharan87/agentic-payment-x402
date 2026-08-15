@@ -1,0 +1,22 @@
+[project]
+name = "agentic-payments"
+version = "0.1.0"
+description = "An agent that autonomously pays small paywall fees via a crypto wallet, x402, or a fiat card bridge."
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+wallet = ["cdp-sdk"]
+offramp = ["lithic"]
+agent = ["anthropic"]
+browser = ["playwright"]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
