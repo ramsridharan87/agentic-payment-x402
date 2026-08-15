@@ -1,12 +1,40 @@
 # Agentic Payments
 
-An agent that autonomously decides when a task needs a paid resource, and pays for it — reasoning about the decision itself, not just executing a payment it's been told to make. See [agentic-payments-project-brief.md](agentic-payments-project-brief.md) for the full design.
+An AI agent that autonomously decides whether a task is worth paying for — and if it is, pays for it itself, in real USDC, on the spot.
 
-Two sequential experiments:
-- **Experiment 1** (built, working): the agent reasons about whether to pay, and if so pays via **x402** in real USDC on Base, sourced from Coinbase's x402 Bazaar. No fiat, no cards.
-- **Experiment 2** (deferred): fiat card issuance (Lithic/Rain), sandbox only.
+Most "AI agent + crypto payment" demos show an agent *executing* a payment it's already been told to make. This one has to *judge* that: given a goal, it has both free tools and paid ones, and has to decide - case by case - whether a paid resource is actually worth its price, or whether free data is good enough. It can go either way. Both are logged.
 
-The LLM never touches wallet credentials. It can only call `fetch_paid_resource`, a narrow function that enforces hard per-transaction and daily spending caps in code before any signature is produced — independent of whatever the model decides. The CDP wallet itself also enforces a $2/transaction Wallet Policy server-side, so a bug in this code isn't the only line of defense.
+## How it works
+
+```mermaid
+flowchart LR
+    A[Goal] --> B[Claude reasons<br/>about the task]
+    B --> C{Free tools<br/>sufficient?}
+    C -->|yes| G[Final answer]
+    C -->|no| D[Search x402 Bazaar<br/>for a paid resource]
+    D --> E{Worth the price?}
+    E -->|no| G
+    E -->|yes| F[Pay via x402<br/>real USDC on Base]
+    F --> G
+    G --> H[(Audit log +<br/>PDF report)]
+```
+
+Every reasoning step, tool call, and payment decision — made or blocked — is written to an audit trail and shown in a dashboard, so the agent's spending is never a black box.
+
+## The core design principle: the LLM never touches money
+
+The model can only call one narrow function, `fetch_paid_resource`, and that function - plain code, not the LLM - is the only thing that can move funds. It enforces a hard per-transaction and daily spending cap *before* any signature is produced, regardless of what the model decides. That cap is enforced twice over: once in this code, and independently by a Wallet Policy on the CDP wallet itself, so a bug here isn't the only thing standing between the agent and overspending.
+
+Payments run on **x402** (Coinbase's HTTP 402-based payment protocol) against real, live pay-per-call endpoints listed in Coinbase's **x402 Bazaar** - financial data, AI inference, scraping APIs and more - paid for in USDC on Base.
+
+## What's built
+
+- **Agent loop** (Claude + tool use): free web search, free Bazaar search, and the one paid tool, all wired into a single reasoning loop
+- **Guardrails**: per-transaction and daily USD caps, enforced in code and on the wallet itself; every decision audited
+- **Dashboard**: submit a goal from the browser, watch it run, see the full reasoning/payment timeline, download the final answer as a PDF, and review every payment ever made (amount, destination, tx hash) across all runs
+- **Hosted deployment**: a Render blueprint, with the dashboard gated behind a password (it can trigger real payments, so it refuses to run without one set)
+
+A fiat-card-issuance path (USDC → virtual card → normal checkout) is scoped for later and deliberately not part of this - see [the project brief](agentic-payments-project-brief.md) for why.
 
 ## Setup
 
@@ -39,11 +67,8 @@ The dashboard (`/`) lists every run with total spend; `/new` submits a new goal 
 
 `render.yaml` is a Render Blueprint: a `starter`-plan web service with a 1GB persistent disk (mounted at `/var/data`, holding the SQLite audit log and generated PDFs - the free tier has no persistent disk, so runs/spend history won't survive a restart on it). Connect the GitHub repo in the Render dashboard, and it picks up `render.yaml` automatically. Secrets (`CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`, `ANTHROPIC_API_KEY`, `TRIGGER_API_KEY`) are marked `sync: false` in the blueprint, so Render prompts for them in its dashboard rather than storing them in the repo.
 
-## Build order
+Render's outbound traffic comes from a shared per-region IP range rather than a single fixed address; if you deploy your own copy, add that range to your CDP key's IP allowlist (Render dashboard → your service → Connect → Outbound) or the wallet calls will fail with 401s.
 
-1. CDP wallet creation & funding - done
-2. Agent reasoning loop (Claude API + tool use) with free web search, free Bazaar search, and paid `fetch_paid_resource` - done
-3. Guardrails: spending caps, endpoint auth, audit logging - done
-4. UI: goal submission, run timeline, purchase log, PDF export - done
-5. Hosted deployment (Render)
-6. Experiment 2 (fiat card issuance, sandbox only) - deferred
+## License
+
+[MIT](LICENSE)
