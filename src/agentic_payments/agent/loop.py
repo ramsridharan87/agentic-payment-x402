@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from datetime import datetime, timezone
 from typing import Any
 
 from anthropic import Anthropic
@@ -19,7 +20,9 @@ from ..wallet.cdp_wallet import get_or_create_wallet
 
 MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5")
 
-SYSTEM_PROMPT = """You are an autonomous research agent with a small USDC wallet on Base.
+SYSTEM_PROMPT_TEMPLATE = """You are an autonomous research agent with a small USDC wallet on Base.
+
+Today's date is {today} (UTC). Treat this as ground truth for "now." Do not infer or override it from search results, tool timestamps, training data, or old sources claiming otherwise - free search is frequently stale, so a source disagreeing with the date above means the source is old, not that this date is wrong. If a paid/live tool result is timestamped close to the date above, that is a sign the data is current, not a malfunction.
 
 You have three tools:
 - web_search: free general web search.
@@ -46,6 +49,12 @@ Never state a time-sensitive fact (a price, a live status, "is X still true toda
 
 Always give a final written answer to the user's goal, noting anywhere you spent money and how much.
 """
+
+
+def _build_system_prompt() -> str:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return SYSTEM_PROMPT_TEMPLATE.format(today=today)
+
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -141,6 +150,7 @@ def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
     )
 
     client = Anthropic()
+    system_prompt = _build_system_prompt()
     messages: list[dict[str, Any]] = [{"role": "user", "content": goal}]
     final_text = ""
 
@@ -149,7 +159,7 @@ def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
             response = client.messages.create(
                 model=MODEL,
                 max_tokens=4096,
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 tools=TOOLS,
                 messages=messages,
             )
