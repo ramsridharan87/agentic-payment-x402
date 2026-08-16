@@ -13,7 +13,7 @@ services:
       - key: AGENTIC_PAYMENTS_DATA_DIR
         value: /var/data
       - key: PAYMENT_PER_TX_CAP_USD
-        value: "2"
+        value: "0.03"
       - key: PAYMENT_DAILY_CAP_USD
         value: "10"
       # Secrets - set these in the Render dashboard, never committed here.

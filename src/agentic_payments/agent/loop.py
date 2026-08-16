@@ -40,12 +40,19 @@ Some sub-questions are inherently time-sensitive: a current price, whether somet
 
 Treat repetition as a signal, not a reason to keep trying the same way. If you've made several differently-phrased searches (roughly 3-4) for the *same specific live fact* and you're still getting dated, conflicting, or unconfirmed snapshots, stop reformulating the search. Instead, reason about it explicitly, out loud, before deciding what to do next - something like: "Free search keeps returning outdated or conflicting values for [X]. A paid live-data source would resolve this directly. Given the goal, is that cost justified?" Then actually make that call: check search_bazaar for a live source and weigh its price against how much the goal depends on that fact being current, rather than letting the search count grow indefinitely.
 
+## Paid data buys access, not correctness
+
+A result costing money is not automatically the truth - it's one more source, and it earns trust the same way any source does: by being consistent, specific, and checkable. Apply the same skepticism to a paid result that contradicts your evidence as you would to a free one.
+
+- **Cross-check paid results against what you already know.** If a paid tool returns a value that contradicts or is in tension with what you've already established via free search in this same run (e.g., qualitative reporting says a token is still deeply distressed with redemptions suspended, but a paid price feed says it's mostly recovered), don't silently default to the paid number just because it cost money. Explicitly flag the contradiction in your reasoning, and either dig further (a second paid or free source to arbitrate) or, if you can't resolve it, surface the discrepancy plainly in the final answer instead of picking one and presenting it as settled.
+- **Treat a bare ticker/symbol lookup as a known risk, not a safe default.** Token tickers collide - e.g. "xUSD" resolves to at least two unrelated stablecoins with wildly different values. Before trusting a price returned for a plain symbol, check whether the response includes disambiguating info (contract address, chain, issuer/protocol name) confirming it's the specific asset you mean. If the tool only accepts a bare symbol and returns no disambiguating metadata, treat the result as lower-confidence and say so explicitly - don't present a possibly-wrong-asset price with the same certainty as a fully-verified one.
+
 ## Calibrating confidence for live facts
 
 Never state a time-sensitive fact (a price, a live status, "is X still true today") with more confidence than your evidence supports. Before writing any such claim in your final answer, check what your most recent evidence for it actually is:
-- If it's a paid live-data source you just fetched: state it as current.
+- If it's a paid live-data source you just fetched, it corroborates rather than contradicts your other evidence, and it's clearly the right asset (see disambiguation above): state it as current.
 - If it's a free-search snippet with a clear, recent timestamp that matches "now": state it, but note the source/timestamp.
-- If your most recent evidence is dated, ambiguous, or contradicted by other sources, say so directly in the answer instead of picking a number and presenting it as fact - e.g. "the most recent figure I found was dated [X] and I could not confirm it reflects the current state" rather than stating a specific current value. This applies whether or not you looked for a paid source - the point is your stated confidence should never exceed what you actually know.
+- If your most recent evidence is dated, ambiguous, contradicted by other sources (paid or free), or came from an unresolved ticker collision, say so directly in the answer instead of picking a number and presenting it as fact - e.g. "the most recent figure I found was dated [X] and I could not confirm it reflects the current state" rather than stating a specific current value. This applies regardless of whether that evidence was free or paid - the point is your stated confidence should never exceed what you actually know.
 
 Always give a final written answer to the user's goal, noting anywhere you spent money and how much.
 """
@@ -133,7 +140,7 @@ def _run_tool(
     return {"error": f"Unknown tool: {name}"}
 
 
-def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
+def run_agent(goal: str, run_id: str | None = None, max_turns: int = 25) -> str:
     """Run the agent on `goal` to completion, returning its final answer.
     Every reasoning step, tool call, and payment decision is written to the
     audit log as it happens. Pass `run_id` when the caller (e.g. the UI)
@@ -155,10 +162,11 @@ def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
     final_text = ""
 
     try:
+        exhausted_turns = True
         for _ in range(max_turns):
             response = client.messages.create(
                 model=MODEL,
-                max_tokens=4096,
+                max_tokens=8192,
                 system=system_prompt,
                 tools=TOOLS,
                 messages=messages,
@@ -172,6 +180,7 @@ def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
             messages.append({"role": "assistant", "content": response.content})
 
             if response.stop_reason != "tool_use":
+                exhausted_turns = False
                 break
 
             tool_results = []
@@ -184,10 +193,21 @@ def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
                 )
             messages.append({"role": "user", "content": tool_results})
 
+        # If the loop never broke naturally, the agent was still mid-investigation
+        # when the turn budget ran out - the last text block is an in-progress
+        # thought, not a real conclusion. Don't present it as a finished answer.
+        status = "completed"
+        if exhausted_turns:
+            status = "incomplete"
+            final_text = (
+                "I ran out of reasoning turns before reaching a conclusion, so this is a "
+                "partial investigation, not a finished answer:\n\n" + final_text
+            )
+
         audit.log("final_answer", final_text)
         if final_text:
             generate_pdf(audit.run_id, goal, final_text)
-        audit.end_run("completed")
+        audit.end_run(status)
     except Exception as exc:
         audit.log("error", str(exc))
         audit.end_run("failed")
