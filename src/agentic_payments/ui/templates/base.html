@@ -31,8 +31,17 @@
       align-items: center;
     }
     header a { color: var(--text); text-decoration: none; font-weight: 600; }
-    header nav a { font-weight: 500; font-size: 0.9rem; color: var(--muted); }
+    header nav { display: flex; align-items: center; gap: 0.35rem; }
+    header nav a {
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: var(--muted);
+      padding: 0.4rem 0.7rem;
+      border-radius: 6px;
+    }
     header nav a:hover { color: var(--text); }
+    header nav a.active { color: var(--text); background: var(--panel); }
+    header nav .button { margin-left: 0.65rem; }
     textarea, input[type="text"] {
       width: 100%;
       background: var(--panel);
@@ -121,10 +130,10 @@
 <body>
   <header>
     <a href="/">Agentic Payments — Decision Log</a>
-    <nav style="display:flex; gap:1.25rem;">
-      <a href="/">Runs</a>
-      <a href="/purchases">Purchases</a>
-      <a href="/new" style="color:var(--accent);">+ New run</a>
+    <nav>
+      <a href="/" class="{{ 'active' if request.url.path == '/' or request.url.path.startswith('/runs') else '' }}">Runs</a>
+      <a href="/purchases" class="{{ 'active' if request.url.path == '/purchases' else '' }}">Purchases</a>
+      <a href="/new" class="button">+ New run</a>
     </nav>
   </header>
   <main>

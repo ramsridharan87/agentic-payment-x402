@@ -28,15 +28,15 @@
   {% if runs %}
   <div class="grid-table">
     <div class="grid-row grid-header">
-      <span>Started</span>
-      <span>Goal</span>
+      <span>Date</span>
+      <span>Research Topic</span>
       <span>Status</span>
       <span>Payments</span>
       <span>Spent</span>
     </div>
     {% for run in runs %}
     <a class="grid-row row-link" href="/runs/{{ run.id }}">
-      <span>{{ run.started_at[:19] }}</span>
+      <span>{{ run.started_at[:10] }}</span>
       <span>{{ run.goal }}</span>
       <span><span class="badge {{ run.status }}">{{ run.status }}</span></span>
       <span>{{ run.payment_count }}</span>
