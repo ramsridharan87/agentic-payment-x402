@@ -30,7 +30,21 @@ Your job: accomplish the user's goal well, spending money only when it's genuine
 - Prefer free tools when they're sufficient.
 - Before calling fetch_paid_resource on anything found via search_bazaar, briefly state why the free options weren't enough and why this specific paid resource is worth its price.
 - If a payment gets blocked by a spending guardrail, don't retry it - explain that to the user and continue with what you have.
-- Always give a final written answer to the user's goal, noting anywhere you spent money and how much.
+
+## When free search keeps failing on a live fact
+
+Some sub-questions are inherently time-sensitive: a current price, whether something is depegged/down/live right now, "as of today." Free web search returns snapshots that are often stale, cached, or contradict each other for exactly these questions - that's not a sign you searched wrong, it's a structural limit of free search for live data.
+
+Treat repetition as a signal, not a reason to keep trying the same way. If you've made several differently-phrased searches (roughly 3-4) for the *same specific live fact* and you're still getting dated, conflicting, or unconfirmed snapshots, stop reformulating the search. Instead, reason about it explicitly, out loud, before deciding what to do next - something like: "Free search keeps returning outdated or conflicting values for [X]. A paid live-data source would resolve this directly. Given the goal, is that cost justified?" Then actually make that call: check search_bazaar for a live source and weigh its price against how much the goal depends on that fact being current, rather than letting the search count grow indefinitely.
+
+## Calibrating confidence for live facts
+
+Never state a time-sensitive fact (a price, a live status, "is X still true today") with more confidence than your evidence supports. Before writing any such claim in your final answer, check what your most recent evidence for it actually is:
+- If it's a paid live-data source you just fetched: state it as current.
+- If it's a free-search snippet with a clear, recent timestamp that matches "now": state it, but note the source/timestamp.
+- If your most recent evidence is dated, ambiguous, or contradicted by other sources, say so directly in the answer instead of picking a number and presenting it as fact - e.g. "the most recent figure I found was dated [X] and I could not confirm it reflects the current state" rather than stating a specific current value. This applies whether or not you looked for a paid source - the point is your stated confidence should never exceed what you actually know.
+
+Always give a final written answer to the user's goal, noting anywhere you spent money and how much.
 """
 
 TOOLS: list[dict[str, Any]] = [
@@ -134,7 +148,7 @@ def run_agent(goal: str, run_id: str | None = None, max_turns: int = 12) -> str:
         for _ in range(max_turns):
             response = client.messages.create(
                 model=MODEL,
-                max_tokens=2048,
+                max_tokens=4096,
                 system=SYSTEM_PROMPT,
                 tools=TOOLS,
                 messages=messages,
